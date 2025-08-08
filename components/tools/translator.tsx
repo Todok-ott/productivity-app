@@ -3,238 +3,168 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeftRight, Volume2, Copy, History } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Languages, ArrowRight, Copy } from 'lucide-react'
+import { koreanTexts } from "@/lib/korean-localization"
+import { toast } from "sonner"
 
 const languages = [
-  { code: "en", name: "영어 (English)" },
-  { code: "ko", name: "한국어 (Korean)" },
-  { code: "ja", name: "일본어 (Japanese)" },
-  { code: "zh", name: "중국어 (Chinese)" },
-  { code: "es", name: "스페인어 (Spanish)" },
-  { code: "fr", name: "프랑스어 (French)" },
-  { code: "de", name: "독일어 (German)" },
-  { code: "it", name: "이탈리아어 (Italian)" },
-  { code: "pt", name: "포르투갈어 (Portuguese)" },
-  { code: "ru", name: "러시아어 (Russian)" },
-  { code: "ar", name: "아랍어 (Arabic)" },
-  { code: "hi", name: "힌디어 (Hindi)" },
-  { code: "th", name: "태국어 (Thai)" },
-  { code: "vi", name: "베트남어 (Vietnamese)" },
-  { code: "nl", name: "네덜란드어 (Dutch)" },
-  { code: "sv", name: "스웨덴어 (Swedish)" },
-  { code: "no", name: "노르웨이어 (Norwegian)" },
-  { code: "da", name: "덴마크어 (Danish)" },
-  { code: "fi", name: "핀란드어 (Finnish)" },
-  { code: "pl", name: "폴란드어 (Polish)" }
+  { code: 'ko', name: '한국어' },
+  { code: 'en', name: 'English' },
+  { code: 'ja', name: '日本語' },
+  { code: 'zh', name: '中文' },
+  { code: 'es', name: 'Español' },
+  { code: 'fr', name: 'Français' },
+  { code: 'de', name: 'Deutsch' },
+  { code: 'ru', name: 'Русский' },
+  { code: 'ar', name: 'العربية' },
+  { code: 'hi', name: 'हिन्दी' }
 ]
-
-interface Translation {
-  id: string
-  sourceText: string
-  translatedText: string
-  fromLang: string
-  toLang: string
-  timestamp: Date
-}
 
 export function Translator() {
   const [sourceText, setSourceText] = useState("")
   const [translatedText, setTranslatedText] = useState("")
-  const [fromLang, setFromLang] = useState("en")
-  const [toLang, setToLang] = useState("ko")
-  const [history, setHistory] = useState<Translation[]>([])
+  const [sourceLang, setSourceLang] = useState("ko")
+  const [targetLang, setTargetLang] = useState("en")
   const [isTranslating, setIsTranslating] = useState(false)
 
+  // Mock translation function - in real app, you'd use Google Translate API or similar
   const translateText = async () => {
-    if (!sourceText.trim()) return
-    
+    if (!sourceText.trim()) {
+      toast.error("번역할 텍스트를 입력해주세요")
+      return
+    }
+
     setIsTranslating(true)
     
-    // Simulate translation API call
-    setTimeout(() => {
-      const mockTranslation = `[Translated from ${languages.find(l => l.code === fromLang)?.name} to ${languages.find(l => l.code === toLang)?.name}]: ${sourceText}`
-      
-      setTranslatedText(mockTranslation)
-      
-      const translation: Translation = {
-        id: Date.now().toString(),
-        sourceText,
-        translatedText: mockTranslation,
-        fromLang,
-        toLang,
-        timestamp: new Date()
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Mock translation responses
+    const mockTranslations: { [key: string]: string } = {
+      'ko-en': 'This is a translated text from Korean to English.',
+      'en-ko': '이것은 영어에서 한국어로 번역된 텍스트입니다.',
+      'ko-ja': 'これは韓国語から日本語に翻訳されたテキストです。',
+      'ja-ko': '이것은 일본어에서 한국어로 번역된 텍스트입니다.',
+      'ko-zh': '这是从韩语翻译成中文的文本。',
+      'zh-ko': '이것은 중국어에서 한국어로 번역된 텍스트입니다.'
+    }
+    
+    const translationKey = `${sourceLang}-${targetLang}`
+    const result = mockTranslations[translationKey] || `[${sourceLang} → ${targetLang}] ${sourceText}`
+    
+    setTranslatedText(result)
+    setIsTranslating(false)
+    toast.success("번역이 완료되었습니다!")
+  }
+
+  const copyTranslation = async () => {
+    if (translatedText) {
+      try {
+        await navigator.clipboard.writeText(translatedText)
+        toast.success("번역 결과가 클립보드에 복사되었습니다!")
+      } catch (error) {
+        toast.error("복사에 실패했습니다")
       }
-      
-      setHistory(prev => [translation, ...prev.slice(0, 9)]) // Keep last 10
-      setIsTranslating(false)
-    }, 1000)
+    }
   }
 
   const swapLanguages = () => {
-    setFromLang(toLang)
-    setToLang(fromLang)
+    setSourceLang(targetLang)
+    setTargetLang(sourceLang)
     setSourceText(translatedText)
     setTranslatedText("")
   }
 
-  const speakText = (text: string, lang: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = lang
-      speechSynthesis.speak(utterance)
-    }
-  }
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
-
   return (
     <div className="space-y-6">
-      {/* Translation Interface */}
-      <Card className="p-6 backdrop-blur-xl bg-white/10 dark:bg-black/10 border-white/20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Source */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Select value={fromLang} onValueChange={setFromLang}>
-                <SelectTrigger className="w-48 bg-white/10 text-white border-white/20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {languages.map(lang => (
-                    <SelectItem key={lang.code} value={lang.code}>{lang.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <Button
-                onClick={swapLanguages}
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/20"
-              >
-                <ArrowLeftRight className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <Textarea
-              placeholder="번역할 텍스트를 입력하세요..."
-              value={sourceText}
-              onChange={(e) => setSourceText(e.target.value)}
-              className="h-40 bg-white/10 text-white border-white/20 resize-none"
-            />
-            
-            <div className="flex gap-2">
-              <Button
-                onClick={() => speakText(sourceText, fromLang)}
-                variant="outline"
-                size="sm"
-                className="text-white border-white/20"
-                disabled={!sourceText}
-              >
-                <Volume2 className="h-4 w-4 mr-1" />
-                음성
-              </Button>
-              <Button
-                onClick={() => copyToClipboard(sourceText)}
-                variant="outline"
-                size="sm"
-                className="text-white border-white/20"
-                disabled={!sourceText}
-              >
-                <Copy className="h-4 w-4 mr-1" />
-                복사
-              </Button>
-            </div>
-          </div>
-
-          {/* Target */}
-          <div className="space-y-4">
-            <Select value={toLang} onValueChange={setToLang}>
-              <SelectTrigger className="w-48 bg-white/10 text-white border-white/20">
+      <Card className="bg-black/40 border-white/10">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Languages className="h-5 w-5" />
+            {koreanTexts.translator}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Language Selection */}
+          <div className="flex items-center gap-4">
+            <Select value={sourceLang} onValueChange={setSourceLang}>
+              <SelectTrigger className="bg-white/10 border-white/20 text-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                {languages.map(lang => (
-                  <SelectItem key={lang.code} value={lang.code}>{lang.name}</SelectItem>
+              <SelectContent className="bg-slate-800 border-white/20">
+                {languages.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code} className="text-white">
+                    {lang.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             
-            <Textarea
-              placeholder="번역 결과가 여기에 표시됩니다..."
-              value={translatedText}
-              readOnly
-              className="h-40 bg-white/10 text-white border-white/20 resize-none"
-            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={swapLanguages}
+              className="text-white hover:bg-white/10"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </Button>
             
-            <div className="flex gap-2">
-              <Button
-                onClick={() => speakText(translatedText, toLang)}
-                variant="outline"
-                size="sm"
-                className="text-white border-white/20"
-                disabled={!translatedText}
-              >
-                <Volume2 className="h-4 w-4 mr-1" />
-                음성
-              </Button>
-              <Button
-                onClick={() => copyToClipboard(translatedText)}
-                variant="outline"
-                size="sm"
-                className="text-white border-white/20"
-                disabled={!translatedText}
-              >
-                <Copy className="h-4 w-4 mr-1" />
-                복사
-              </Button>
+            <Select value={targetLang} onValueChange={setTargetLang}>
+              <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-white/20">
+                {languages.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code} className="text-white">
+                    {lang.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Text Areas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Textarea
+                value={sourceText}
+                onChange={(e) => setSourceText(e.target.value)}
+                placeholder="번역할 텍스트를 입력하세요..."
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/50 min-h-[200px]"
+              />
+            </div>
+            <div className="relative">
+              <Textarea
+                value={translatedText}
+                readOnly
+                placeholder="번역 결과가 여기에 표시됩니다..."
+                className="bg-white/5 border-white/20 text-white placeholder:text-white/50 min-h-[200px]"
+              />
+              {translatedText && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={copyTranslation}
+                  className="absolute top-2 right-2 text-white/70 hover:text-white"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
-        </div>
-        
-        <div className="mt-6 text-center">
-          <Button
-            onClick={translateText}
-            disabled={!sourceText.trim() || isTranslating}
-            className="bg-blue-500/20 hover:bg-blue-500/30 text-white px-8"
-          >
-            {isTranslating ? "번역 중..." : "번역하기"}
-          </Button>
-        </div>
-      </Card>
 
-      {/* Translation History */}
-      {history.length > 0 && (
-        <Card className="p-6 backdrop-blur-xl bg-white/10 dark:bg-black/10 border-white/20">
-          <div className="flex items-center gap-2 mb-4">
-            <History className="h-5 w-5 text-blue-400" />
-            <h3 className="text-lg font-semibold text-white">번역 기록</h3>
-          </div>
-          
-          <div className="space-y-3 max-h-60 overflow-y-auto">
-            {history.map((translation) => (
-              <div key={translation.id} className="bg-white/5 rounded-lg p-3">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-sm text-gray-400">
-                    {languages.find(l => l.code === translation.fromLang)?.name} → {languages.find(l => l.code === translation.toLang)?.name}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {translation.timestamp.toLocaleTimeString()}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-300">{translation.sourceText}</p>
-                  <p className="text-sm text-white">{translation.translatedText}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+          {/* Translate Button */}
+          <Button 
+            onClick={translateText} 
+            disabled={isTranslating}
+            className="w-full"
+          >
+            {isTranslating ? koreanTexts.processing : koreanTexts.translate}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Menu, Download, Upload } from 'lucide-react'
 import { useRef } from "react"
 import { toast } from "sonner"
+import { koreanTexts } from "@/lib/korean-localization"
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -20,6 +21,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         notes: JSON.parse(localStorage.getItem('notes') || '[]'),
         todos: JSON.parse(localStorage.getItem('todos') || '[]'),
         settings: JSON.parse(localStorage.getItem('settings') || '{}'),
+        birthYear: localStorage.getItem('birthYear') || '1983',
         exportDate: new Date().toISOString()
       }
 
@@ -33,9 +35,9 @@ export function Header({ onMenuClick }: HeaderProps) {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
       
-      toast.success("Data exported successfully!")
+      toast.success("데이터가 성공적으로 내보내졌습니다!")
     } catch (error) {
-      toast.error("Failed to export data")
+      toast.error("데이터 내보내기에 실패했습니다")
     }
   }
 
@@ -53,16 +55,16 @@ export function Header({ onMenuClick }: HeaderProps) {
         if (data.notes) localStorage.setItem('notes', JSON.stringify(data.notes))
         if (data.todos) localStorage.setItem('todos', JSON.stringify(data.todos))
         if (data.settings) localStorage.setItem('settings', JSON.stringify(data.settings))
+        if (data.birthYear) localStorage.setItem('birthYear', data.birthYear)
         
-        toast.success("Data imported successfully! Please refresh the page.")
+        toast.success("데이터가 성공적으로 가져와졌습니다! 페이지를 새로고침합니다.")
         setTimeout(() => window.location.reload(), 2000)
       } catch (error) {
-        toast.error("Invalid file format")
+        toast.error("잘못된 파일 형식입니다")
       }
     }
     reader.readAsText(file)
     
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -80,7 +82,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold text-white">Productivity Pro</h1>
+          <h1 className="text-2xl font-bold text-white">{koreanTexts.appTitle}</h1>
         </div>
         
         <div className="flex items-center gap-2">
@@ -91,7 +93,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             className="text-white border-white/20 hover:bg-white/10"
           >
             <Download className="h-4 w-4 mr-2" />
-            Export Data
+            {koreanTexts.exportData}
           </Button>
           
           <Button
@@ -101,7 +103,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             className="text-white border-white/20 hover:bg-white/10"
           >
             <Upload className="h-4 w-4 mr-2" />
-            Import Data
+            {koreanTexts.importData}
           </Button>
           
           <input

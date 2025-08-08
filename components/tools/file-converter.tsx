@@ -1,161 +1,219 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Upload, Download, FileImage, Trash2 } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { FileType, Upload, Download } from 'lucide-react'
+import { koreanTexts } from "@/lib/korean-localization"
+import { toast } from "sonner"
 
-interface ConvertedFile {
-  id: string
-  name: string
-  originalFormat: string
-  targetFormat: string
-  size: number
-  url: string
-}
-
-const imageFormats = ["jpeg", "png", "webp", "gif", "bmp"]
-const documentFormats = ["pdf", "docx", "txt", "rtf"]
+const fileTypes = [
+  { value: 'txt', label: 'TXT (텍스트)' },
+  { value: 'json', label: 'JSON' },
+  { value: 'csv', label: 'CSV' },
+  { value: 'xml', label: 'XML' },
+  { value: 'md', label: 'Markdown' },
+  { value: 'html', label: 'HTML' }
+]
 
 export function FileConverter() {
-  const [files, setFiles] = useState<ConvertedFile[]>([])
-  const [targetFormat, setTargetFormat] = useState("png")
-  const [conversionType, setConversionType] = useState("image")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [fileContent, setFileContent] = useState<string>("")
+  const [sourceFormat, setSourceFormat] = useState<string>("")
+  const [targetFormat, setTargetFormat] = useState<string>("txt")
+  const [isConverting, setIsConverting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const uploadedFiles = event.target.files
-    if (!uploadedFiles) return
-
-    Array.from(uploadedFiles).forEach((file) => {
-      // Simulate file conversion
-      const convertedFile: ConvertedFile = {
-        id: Date.now().toString() + Math.random(),
-        name: file.name,
-        originalFormat: file.name.split('.').pop() || '',
-        targetFormat,
-        size: file.size,
-        url: URL.createObjectURL(file)
-      }
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+      const extension = file.name.split('.').pop()?.toLowerCase() || ''
+      setSourceFormat(extension)
       
-      setFiles(prev => [...prev, convertedFile])
-    })
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const content = e.target?.result as string
+        setFileContent(content)
+      }
+      reader.readAsText(file)
+    }
   }
 
-  const downloadFile = (file: ConvertedFile) => {
-    const link = document.createElement('a')
-    link.href = file.url
-    link.download = `${file.name.split('.')[0]}.${file.targetFormat}`
-    link.click()
-  }
+  const convertFile = async () => {
+    if (!selectedFile || !fileContent) {
+      toast.error("변환할 파일을 선택해주세요")
+      return
+    }
 
-  const removeFile = (id: string) => {
-    setFiles(files.filter(f => f.id !== id))
-  }
+    setIsConverting(true)
+    
+    try {
+      let convertedContent = fileContent
+      let fileName = selectedFile.name.replace(/\.[^/.]+$/, "")
+      
+      // Simple conversion logic (in real app, you'd use proper parsers/converters)
+      switch (targetFormat) {
+        case 'json':
+          if (sourceFormat === 'csv') {
+            // Simple CSV to JSON conversion
+            const lines = fileContent.split('\n')
+            const headers = lines[0].split(',')
+            const jsonData = lines.slice(1).map(line => {
+              const values = line.split(',')
+              const obj: any = {}
+              headers.forEach((header, index) => {
+                obj[header.trim()] = values[index]?.trim() || ''
+              })
+              return obj
+            })
+            convertedContent = JSON.stringify(jsonData, null, 2)
+          } else {
+            convertedContent = JSON.stringify({ content: fileContent }, null, 2)
+          }
+          break
+        case 'csv':
+          if (sourceFormat === 'json') {
+            try {
+              const jsonData = JSON.parse(fileContent)
+              if (Array.isArray(jsonData) && jsonData.length > 0) {
+                const headers = Object.keys(jsonData[0])
+                const csvLines = [headers.join(',')]
+                jsonData.forEach(item => {
+                  csvLines.push(headers.map(header => item[header] || '').join(','))
+                })
+                convertedContent = csvLines.join('\n')
+              }
+            } catch {
+              convertedContent = `content\n"${fileContent.replace(/"/g, '""')}"`
+            }
+          }
+          break
+        case 'md':
+          convertedContent = `# ${fileName}\n\n${fileContent}`
+          break
+        case 'html':
+          convertedContent = `<!DOCTYPE html>
+<html>
+<head>
+    <title>${fileName}</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <pre>${fileContent}</pre>
+</body>
+</html>`
+          break
+        case 'xml':
+          convertedContent = `<?xml version="1.0" encoding="UTF-8"?>
+<document>
+    <content><![CDATA[${fileContent}]]></content>
+</document>`
+          break
+        default:
+          convertedContent = fileContent
+      }
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+      // Download converted file
+      const blob = new Blob([convertedContent], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${fileName}.${targetFormat}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      toast.success("파일 변환이 완료되었습니다!")
+    } catch (error) {
+      toast.error("파일 변환 중 오류가 발생했습니다")
+    } finally {
+      setIsConverting(false)
+    }
   }
 
   return (
     <div className="space-y-6">
-      {/* Conversion Settings */}
-      <Card className="p-6 backdrop-blur-xl bg-white/10 dark:bg-black/10 border-white/20">
-        <h3 className="text-lg font-semibold text-white mb-4">파일 변환 설정</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-white mb-2">변환 유형</label>
-            <Select value={conversionType} onValueChange={setConversionType}>
-              <SelectTrigger className="bg-white/10 text-white border-white/20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="image">이미지 변환</SelectItem>
-                <SelectItem value="document">문서 변환</SelectItem>
-              </SelectContent>
-            </Select>
+      <Card className="bg-black/40 border-white/10">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <FileType className="h-5 w-5" />
+            {koreanTexts.fileConverter}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* File Upload */}
+          <div className="text-center">
+            <div 
+              className="border-2 border-dashed border-white/20 rounded-lg p-8 cursor-pointer hover:border-white/40 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="h-12 w-12 text-white/50 mx-auto mb-4" />
+              <p className="text-white/70">{koreanTexts.dragDrop}</p>
+              {selectedFile && (
+                <p className="text-white text-sm mt-2">선택된 파일: {selectedFile.name}</p>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
           </div>
-          
-          <div>
-            <label className="block text-white mb-2">대상 형식</label>
-            <Select value={targetFormat} onValueChange={setTargetFormat}>
-              <SelectTrigger className="bg-white/10 text-white border-white/20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(conversionType === "image" ? imageFormats : documentFormats).map(format => (
-                  <SelectItem key={format} value={format}>{format.toUpperCase()}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
-        <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center">
-          <input
-            type="file"
-            multiple
-            onChange={handleFileUpload}
-            className="hidden"
-            id="file-upload"
-            accept={conversionType === "image" ? "image/*" : ".pdf,.doc,.docx,.txt"}
-          />
-          <label htmlFor="file-upload" className="cursor-pointer">
-            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-white mb-2">파일을 업로드하려면 클릭하거나 드래그 앤 드롭하세요</p>
-            <p className="text-sm text-gray-400">
-              {conversionType === "image" ? "이미지 파일을 지원합니다" : "문서 파일을 지원합니다"}
-            </p>
-          </label>
-        </div>
-      </Card>
-
-      {/* Converted Files */}
-      {files.length > 0 && (
-        <Card className="p-6 backdrop-blur-xl bg-white/10 dark:bg-black/10 border-white/20">
-          <h3 className="text-lg font-semibold text-white mb-4">변환된 파일</h3>
-          
-          <div className="space-y-3">
-            {files.map((file) => (
-              <div key={file.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <FileImage className="h-8 w-8 text-blue-400" />
-                  <div>
-                    <p className="text-white font-medium">{file.name}</p>
-                    <p className="text-sm text-gray-400">
-                      {file.originalFormat.toUpperCase()} → {file.targetFormat.toUpperCase()} • {formatFileSize(file.size)}
-                    </p>
+          {selectedFile && (
+            <>
+              {/* Format Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-white text-sm block mb-2">원본 형식</label>
+                  <div className="bg-white/10 border border-white/20 rounded-md px-3 py-2 text-white">
+                    {sourceFormat.toUpperCase()}
                   </div>
                 </div>
-                
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => downloadFile(file)}
-                    className="bg-green-500/20 hover:bg-green-500/30 text-white"
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    다운로드
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => removeFile(file.id)}
-                    className="text-red-400 border-red-400/20 hover:bg-red-500/20"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                <div>
+                  <label className="text-white text-sm block mb-2">변환할 형식</label>
+                  <Select value={targetFormat} onValueChange={setTargetFormat}>
+                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-white/20">
+                      {fileTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value} className="text-white">
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
+
+              {/* File Preview */}
+              <div>
+                <label className="text-white text-sm block mb-2">파일 내용 미리보기</label>
+                <div className="bg-black/30 border border-white/20 rounded-md p-3 max-h-40 overflow-y-auto">
+                  <pre className="text-white/80 text-xs whitespace-pre-wrap">
+                    {fileContent.slice(0, 500)}{fileContent.length > 500 ? '...' : ''}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Convert Button */}
+              <Button 
+                onClick={convertFile} 
+                disabled={isConverting}
+                className="w-full"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isConverting ? koreanTexts.processing : koreanTexts.convert}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

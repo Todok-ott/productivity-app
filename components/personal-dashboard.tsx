@@ -5,9 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Calendar, Star, Sparkles, ExternalLink, RefreshCw, Cloud, Thermometer, Droplets, Wind } from 'lucide-react'
+import { Calendar, Star, Sparkles, ExternalLink, RefreshCw, Cloud, Droplets, Wind } from 'lucide-react'
 import { fetchWeatherData } from "@/lib/weather-service"
-import { fetchNewsData } from "@/lib/news-service"
+import { fetchKoreanNews } from "@/lib/korean-news-service"
+import { fetchKoreanFortune } from "@/lib/korean-fortune-service"
+import { koreanTexts } from "@/lib/korean-localization"
 import { toast } from "sonner"
 
 interface NewsItem {
@@ -31,41 +33,66 @@ interface WeatherData {
   lastUpdated: string
 }
 
-export function PersonalDashboard() {
+interface KoreanFortune {
+  message: string
+  luckyNumbers: number[]
+  luckyColors: string[]
+  luckyDirection: string
+  zodiacName: string
+}
+
+interface PersonalDashboardProps {
+  birthYear: number
+  onFortuneUpdate?: () => void
+}
+
+export function PersonalDashboard({ birthYear, onFortuneUpdate }: PersonalDashboardProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null)
   const [news, setNews] = useState<NewsItem[]>([])
   const [weather, setWeather] = useState<WeatherData | null>(null)
+  const [fortune, setFortune] = useState<KoreanFortune | null>(null)
   const [newsLoading, setNewsLoading] = useState(true)
   const [weatherLoading, setWeatherLoading] = useState(true)
+  const [fortuneLoading, setFortuneLoading] = useState(true)
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  // Auto-refresh data on component mount and every 5 minutes
   useEffect(() => {
     loadInitialData()
     
     const refreshInterval = setInterval(() => {
       refreshData()
-    }, 5 * 60 * 1000) // 5 minutes
+    }, 5 * 60 * 1000)
     
     return () => clearInterval(refreshInterval)
   }, [])
 
+  useEffect(() => {
+    // Update fortune when birth year changes
+    loadFortuneData()
+  }, [birthYear])
+
   const loadInitialData = async () => {
-    await Promise.all([loadWeatherData(), loadNewsData()])
+    await Promise.all([loadWeatherData(), loadNewsData(), loadFortuneData()])
   }
 
   const loadWeatherData = async () => {
     setWeatherLoading(true)
     try {
       const weatherData = await fetchWeatherData()
-      setWeather(weatherData)
+      // Translate weather condition to Korean
+      const translatedWeather = {
+        ...weatherData,
+        condition: translateWeatherCondition(weatherData.condition),
+        location: koreanTexts.location
+      }
+      setWeather(translatedWeather)
     } catch (error) {
-      toast.error("Failed to load weather data")
+      toast.error("날씨 정보를 불러오는데 실패했습니다")
     } finally {
       setWeatherLoading(false)
     }
@@ -74,61 +101,55 @@ export function PersonalDashboard() {
   const loadNewsData = async () => {
     setNewsLoading(true)
     try {
-      const newsData = await fetchNewsData()
+      const newsData = await fetchKoreanNews()
       setNews(newsData)
     } catch (error) {
-      toast.error("Failed to load news data")
+      toast.error("뉴스를 불러오는데 실패했습니다")
     } finally {
       setNewsLoading(false)
     }
   }
 
+  const loadFortuneData = async () => {
+    setFortuneLoading(true)
+    try {
+      const fortuneData = await fetchKoreanFortune(birthYear)
+      setFortune(fortuneData)
+    } catch (error) {
+      toast.error("운세 정보를 불러오는데 실패했습니다")
+    } finally {
+      setFortuneLoading(false)
+    }
+  }
+
+  const translateWeatherCondition = (condition: string) => {
+    const translations: { [key: string]: string } = {
+      'Sunny': koreanTexts.sunny,
+      'Cloudy': koreanTexts.cloudy,
+      'Partly Cloudy': koreanTexts.partlyCloudy,
+      'Rainy': koreanTexts.rainy,
+      'Stormy': koreanTexts.stormy
+    }
+    return translations[condition] || condition
+  }
+
   const refreshData = async () => {
-    toast.info("Refreshing data...")
-    await Promise.all([loadWeatherData(), loadNewsData()])
-    toast.success("Data refreshed!")
+    toast.info("데이터를 새로고침하는 중...")
+    await Promise.all([loadWeatherData(), loadNewsData(), loadFortuneData()])
+    toast.success("데이터가 새로고침되었습니다!")
   }
 
   const refreshWeather = async () => {
-    toast.info("Refreshing weather...")
+    toast.info("날씨 정보를 새로고침하는 중...")
     await loadWeatherData()
-    toast.success("Weather updated!")
+    toast.success("날씨 정보가 업데이트되었습니다!")
   }
 
   const refreshNews = async () => {
-    toast.info("Refreshing news...")
+    toast.info("뉴스를 새로고침하는 중...")
     await loadNewsData()
-    toast.success("News updated!")
+    toast.success("뉴스가 업데이트되었습니다!")
   }
-
-  // Enhanced fortune for Year of the Pig (1983)
-  const getPigFortune = () => {
-    const fortunes = [
-      {
-        message: "Today brings excellent opportunities for financial growth. Your natural intuition will guide you to make wise decisions.",
-        luckyNumbers: [3, 7, 12, 21, 33],
-        luckyColors: ["Golden Yellow", "Deep Blue"],
-        luckyDirection: "Southwest"
-      },
-      {
-        message: "Your compassionate nature will be rewarded today. Help others and you'll find unexpected blessings.",
-        luckyNumbers: [8, 15, 22, 29, 36],
-        luckyColors: ["Forest Green", "Silver"],
-        luckyDirection: "Northeast"
-      },
-      {
-        message: "Focus on family and close relationships today. Your loyalty and honesty will strengthen important bonds.",
-        luckyNumbers: [5, 11, 18, 25, 42],
-        luckyColors: ["Royal Purple", "Warm Orange"],
-        luckyDirection: "Northwest"
-      }
-    ]
-    
-    const today = new Date().getDate()
-    return fortunes[today % fortunes.length]
-  }
-
-  const todaysFortune = getPigFortune()
 
   const getTimeAgo = (dateString: string) => {
     const now = new Date()
@@ -136,22 +157,22 @@ export function PersonalDashboard() {
     const diffInMinutes = Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60))
     
     if (diffInMinutes < 60) {
-      return `${diffInMinutes}m ago`
+      return `${diffInMinutes}${koreanTexts.minutesAgo}`
     } else if (diffInMinutes < 1440) {
-      return `${Math.floor(diffInMinutes / 60)}h ago`
+      return `${Math.floor(diffInMinutes / 60)}${koreanTexts.hoursAgo}`
     } else {
-      return `${Math.floor(diffInMinutes / 1440)}d ago`
+      return `${Math.floor(diffInMinutes / 1440)}${koreanTexts.daysAgo}`
     }
   }
 
   const getCategoryBadge = (category: string) => {
     switch (category) {
       case 'breaking':
-        return <Badge className="bg-red-600 text-white text-xs">BREAKING</Badge>
+        return <Badge className="bg-red-600 text-white text-xs">{koreanTexts.breaking}</Badge>
       case 'trending':
-        return <Badge className="bg-orange-600 text-white text-xs">TRENDING</Badge>
+        return <Badge className="bg-orange-600 text-white text-xs">{koreanTexts.trending}</Badge>
       case 'major':
-        return <Badge className="bg-blue-600 text-white text-xs">MAJOR</Badge>
+        return <Badge className="bg-blue-600 text-white text-xs">{koreanTexts.major}</Badge>
       default:
         return null
     }
@@ -164,15 +185,15 @@ export function PersonalDashboard() {
         <CardHeader className="pb-3">
           <CardTitle className="text-white flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Today
+            {koreanTexts.today}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-white mb-2">
-            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {currentTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
           </div>
           <div className="text-white/70">
-            {currentTime.toLocaleDateString('en-US', { 
+            {currentTime.toLocaleDateString('ko-KR', { 
               weekday: 'long', 
               year: 'numeric', 
               month: 'long', 
@@ -188,7 +209,7 @@ export function PersonalDashboard() {
           <CardTitle className="text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Cloud className="h-5 w-5" />
-              Weather
+              {koreanTexts.weather}
             </div>
             <Button
               variant="ghost"
@@ -231,70 +252,82 @@ export function PersonalDashboard() {
               </div>
               
               <div className="text-white/40 text-xs">
-                Updated {getTimeAgo(weather.lastUpdated)}
+                {getTimeAgo(weather.lastUpdated)} {koreanTexts.updatedAgo}
               </div>
             </div>
           ) : (
             <div className="text-white/70 text-center py-4">
-              Failed to load weather data
+              {koreanTexts.error}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Enhanced Fortune for Year of the Pig */}
+      {/* Korean Fortune */}
       <Card className="bg-black/40 border-white/10 backdrop-blur-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-white flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
-            Today's Fortune for Pig Zodiac (1983 born)
+            {koreanTexts.fortuneTitle} ({fortune?.zodiacName})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-white/90 text-sm leading-relaxed">
-            {todaysFortune.message}
-          </p>
-          
-          <div className="space-y-2">
-            <div>
-              <span className="text-white/70 text-xs font-medium">Lucky Numbers:</span>
-              <div className="flex gap-1 mt-1">
-                {todaysFortune.luckyNumbers.map((num) => (
-                  <Badge key={num} variant="secondary" className="bg-purple-600/30 text-white text-xs">
-                    {num}
+          {fortuneLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-white/50" />
+            </div>
+          ) : fortune ? (
+            <>
+              <p className="text-white/90 text-sm leading-relaxed">
+                {fortune.message}
+              </p>
+              
+              <div className="space-y-2">
+                <div>
+                  <span className="text-white/70 text-xs font-medium">{koreanTexts.luckyNumbers}:</span>
+                  <div className="flex gap-1 mt-1">
+                    {fortune.luckyNumbers.map((num) => (
+                      <Badge key={num} variant="secondary" className="bg-purple-600/30 text-white text-xs">
+                        {num}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <span className="text-white/70 text-xs font-medium">{koreanTexts.luckyColors}:</span>
+                  <div className="flex gap-1 mt-1">
+                    {fortune.luckyColors.map((color) => (
+                      <Badge key={color} variant="secondary" className="bg-blue-600/30 text-white text-xs">
+                        {color}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <span className="text-white/70 text-xs font-medium">{koreanTexts.luckyDirection}:</span>
+                  <Badge variant="secondary" className="bg-green-600/30 text-white text-xs ml-2">
+                    {fortune.luckyDirection}
                   </Badge>
-                ))}
+                </div>
               </div>
+            </>
+          ) : (
+            <div className="text-white/70 text-center py-4">
+              {koreanTexts.error}
             </div>
-            
-            <div>
-              <span className="text-white/70 text-xs font-medium">Lucky Colors:</span>
-              <div className="flex gap-1 mt-1">
-                {todaysFortune.luckyColors.map((color) => (
-                  <Badge key={color} variant="secondary" className="bg-blue-600/30 text-white text-xs">
-                    {color}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            
-            <div>
-              <span className="text-white/70 text-xs font-medium">Lucky Direction:</span>
-              <Badge variant="secondary" className="bg-green-600/30 text-white text-xs ml-2">
-                {todaysFortune.luckyDirection}
-              </Badge>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Enhanced News Section - Full Width */}
+      {/* Korean News Section */}
       <Card className="bg-black/40 border-white/10 backdrop-blur-sm lg:col-span-3">
         <CardHeader className="pb-3">
           <CardTitle className="text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Star className="h-5 w-5" />
-              Breaking News & Headlines
+              {koreanTexts.breakingNews}
             </div>
             <Button
               variant="ghost"
@@ -313,7 +346,7 @@ export function PersonalDashboard() {
               <RefreshCw className="h-8 w-8 animate-spin text-white/50" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {news.map((item) => (
                 <div 
                   key={item.id}

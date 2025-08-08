@@ -1,15 +1,22 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { X, Settings, User, HelpCircle } from 'lucide-react'
+import { X, Settings } from 'lucide-react'
+import { koreanTexts } from "@/lib/korean-localization"
 
 interface SidebarProps {
   isOpen: boolean
   onClose: () => void
+  onSettingsClick: () => void
 }
 
-export function Sidebar({ isOpen, onClose }: SidebarProps) {
+export function Sidebar({ isOpen, onClose, onSettingsClick }: SidebarProps) {
   if (!isOpen) return null
+
+  const handleSettingsClick = () => {
+    onSettingsClick()
+    onClose()
+  }
 
   return (
     <>
@@ -22,7 +29,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Sidebar */}
       <div className="fixed left-0 top-0 h-full w-80 bg-black/90 backdrop-blur-sm border-r border-white/10 z-50 p-6">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-white text-xl font-semibold">Menu</h2>
+          <h2 className="text-white text-xl font-semibold">{koreanTexts.menu}</h2>
           <Button
             variant="ghost"
             size="icon"
@@ -37,25 +44,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <Button
             variant="ghost"
             className="w-full justify-start text-white hover:bg-white/10"
-          >
-            <User className="h-5 w-5 mr-3" />
-            Profile
-          </Button>
-          
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-white hover:bg-white/10"
+            onClick={handleSettingsClick}
           >
             <Settings className="h-5 w-5 mr-3" />
-            Settings
-          </Button>
-          
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-white hover:bg-white/10"
-          >
-            <HelpCircle className="h-5 w-5 mr-3" />
-            Help
+            {koreanTexts.settings}
           </Button>
         </nav>
       </div>

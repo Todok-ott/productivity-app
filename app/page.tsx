@@ -8,10 +8,26 @@ import { ToolsGrid } from "@/components/tools-grid"
 import { Sidebar } from "@/components/sidebar"
 import { Footer } from "@/components/footer"
 import { ToolModal } from "@/components/tool-modal"
+import { SettingsModal } from "@/components/settings-modal"
+import { Toaster } from "sonner"
 
 export default function Home() {
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [birthYear, setBirthYear] = useState(1983)
+
+  useEffect(() => {
+    // Load saved birth year
+    const saved = localStorage.getItem('birthYear')
+    if (saved) {
+      setBirthYear(parseInt(saved))
+    }
+  }, [])
+
+  const handleBirthYearChange = (year: number) => {
+    setBirthYear(year)
+  }
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
@@ -23,11 +39,15 @@ export default function Home() {
           <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
           
           <main className="container mx-auto px-4 py-6 space-y-8">
-            <PersonalDashboard />
+            <PersonalDashboard birthYear={birthYear} />
             <ToolsGrid onToolClick={setActiveModal} />
           </main>
           
-          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+          <Sidebar 
+            isOpen={sidebarOpen} 
+            onClose={() => setSidebarOpen(false)}
+            onSettingsClick={() => setSettingsOpen(true)}
+          />
           <Footer />
           
           {activeModal && (
@@ -36,8 +56,15 @@ export default function Home() {
               onClose={() => setActiveModal(null)}
             />
           )}
+
+          <SettingsModal
+            isOpen={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            onBirthYearChange={handleBirthYearChange}
+          />
         </div>
       </div>
+      <Toaster position="top-right" />
     </ThemeProvider>
   )
 }

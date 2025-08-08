@@ -1,271 +1,180 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Clock, Timer, Calendar, Globe } from 'lucide-react'
-
-const timezones = [
-  { value: "UTC", label: "UTC" },
-  { value: "America/New_York", label: "New York" },
-  { value: "America/Los_Angeles", label: "Los Angeles" },
-  { value: "Europe/London", label: "London" },
-  { value: "Europe/Paris", label: "Paris" },
-  { value: "Asia/Tokyo", label: "Tokyo" },
-  { value: "Asia/Seoul", label: "Seoul" },
-  { value: "Asia/Shanghai", label: "Shanghai" },
-  { value: "Australia/Sydney", label: "Sydney" }
-]
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Clock, Calendar, Timer } from 'lucide-react'
+import { koreanTexts } from "@/lib/korean-localization"
 
 export function TimeTools() {
-  const [seconds, setSeconds] = useState("")
-  const [convertedTime, setConvertedTime] = useState("")
-  const [countdownTime, setCountdownTime] = useState("")
-  const [timeLeft, setTimeLeft] = useState(0)
-  const [isRunning, setIsRunning] = useState(false)
-  const [selectedTimezone, setSelectedTimezone] = useState("UTC")
-  const [timezoneTime, setTimezoneTime] = useState("")
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (isRunning && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(timeLeft - 1)
-      }, 1000)
-    } else if (timeLeft === 0) {
-      setIsRunning(false)
-    }
-    return () => clearInterval(interval)
-  }, [isRunning, timeLeft])
-
-  useEffect(() => {
-    const updateTimezoneTime = () => {
-      const now = new Date()
-      const timeInZone = new Intl.DateTimeFormat('en-US', {
-        timeZone: selectedTimezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      }).format(now)
-      setTimezoneTime(timeInZone)
-    }
-
-    updateTimezoneTime()
-    const interval = setInterval(updateTimezoneTime, 1000)
-    return () => clearInterval(interval)
-  }, [selectedTimezone])
+  const [seconds, setSeconds] = useState<string>("")
+  const [convertedTime, setConvertedTime] = useState<string>("")
+  const [startDate, setStartDate] = useState<string>("")
+  const [endDate, setEndDate] = useState<string>("")
+  const [dateDiff, setDateDiff] = useState<string>("")
+  const [timestamp, setTimestamp] = useState<string>("")
+  const [humanTime, setHumanTime] = useState<string>("")
 
   const convertSeconds = () => {
-    const sec = parseInt(seconds)
-    if (isNaN(sec)) return
+    const totalSeconds = parseInt(seconds)
+    if (isNaN(totalSeconds)) return
 
-    const hours = Math.floor(sec / 3600)
-    const minutes = Math.floor((sec % 3600) / 60)
-    const remainingSeconds = sec % 60
+    const days = Math.floor(totalSeconds / 86400)
+    const hours = Math.floor((totalSeconds % 86400) / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const remainingSeconds = totalSeconds % 60
 
-    setConvertedTime(`${hours}h ${minutes}m ${remainingSeconds}s`)
+    let result = ""
+    if (days > 0) result += `${days}일 `
+    if (hours > 0) result += `${hours}시간 `
+    if (minutes > 0) result += `${minutes}분 `
+    if (remainingSeconds > 0) result += `${remainingSeconds}초`
+
+    setConvertedTime(result.trim() || "0초")
   }
 
-  const startCountdown = () => {
-    const time = parseInt(countdownTime)
-    if (isNaN(time) || time <= 0) return
+  const calculateDateDiff = () => {
+    if (!startDate || !endDate) return
 
-    setTimeLeft(time)
-    setIsRunning(true)
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const diffTime = Math.abs(end.getTime() - start.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
+    const diffMinutes = Math.floor(diffTime / (1000 * 60))
+
+    setDateDiff(`${diffDays}일 (${diffHours}시간, ${diffMinutes}분)`)
   }
 
-  const stopCountdown = () => {
-    setIsRunning(false)
+  const convertTimestamp = () => {
+    const ts = parseInt(timestamp)
+    if (isNaN(ts)) return
+
+    const date = new Date(ts * 1000)
+    setHumanTime(date.toLocaleString('ko-KR'))
   }
 
-  const resetCountdown = () => {
-    setIsRunning(false)
-    setTimeLeft(0)
-  }
-
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  const getCurrentTimestamp = () => {
+    const now = Math.floor(Date.now() / 1000)
+    setTimestamp(now.toString())
+    setHumanTime(new Date().toLocaleString('ko-KR'))
   }
 
   return (
-    <Tabs defaultValue="converter" className="w-full">
-      <TabsList className="grid w-full grid-cols-4 bg-white/10 dark:bg-black/10">
-        <TabsTrigger value="converter" className="text-white">변환기</TabsTrigger>
-        <TabsTrigger value="countdown" className="text-white">카운트다운</TabsTrigger>
-        <TabsTrigger value="timezone" className="text-white">시간대</TabsTrigger>
-        <TabsTrigger value="calculator" className="text-white">계산기</TabsTrigger>
-      </TabsList>
+    <div className="space-y-6">
+      <Card className="bg-black/40 border-white/10">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            {koreanTexts.timeTools}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="seconds" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 bg-white/10">
+              <TabsTrigger value="seconds" className="text-white data-[state=active]:bg-white/20">
+                초 변환
+              </TabsTrigger>
+              <TabsTrigger value="dates" className="text-white data-[state=active]:bg-white/20">
+                날짜 계산
+              </TabsTrigger>
+              <TabsTrigger value="timestamp" className="text-white data-[state=active]:bg-white/20">
+                타임스탬프
+              </TabsTrigger>
+            </TabsList>
 
-      <TabsContent value="converter" className="space-y-4">
-        <Card className="p-6 backdrop-blur-xl bg-white/10 dark:bg-black/10 border-white/20">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="h-5 w-5 text-blue-400" />
-            <h3 className="text-lg font-semibold text-white">초를 시간으로 변환</h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <Label className="text-white">초</Label>
-              <Input
-                type="number"
-                placeholder="초를 입력하세요"
-                value={seconds}
-                onChange={(e) => setSeconds(e.target.value)}
-                className="bg-white/10 text-white border-white/20"
-              />
-            </div>
-            
-            <Button onClick={convertSeconds} className="bg-blue-500/20 hover:bg-blue-500/30 text-white">
-              변환
-            </Button>
-            
-            {convertedTime && (
-              <div className="p-4 bg-white/5 rounded-lg">
-                <p className="text-white font-mono text-lg">{convertedTime}</p>
+            <TabsContent value="seconds" className="space-y-4">
+              <div>
+                <Label htmlFor="seconds-input" className="text-white">초 입력</Label>
+                <Input
+                  id="seconds-input"
+                  type="number"
+                  value={seconds}
+                  onChange={(e) => setSeconds(e.target.value)}
+                  placeholder="예: 3661"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50 mt-2"
+                />
               </div>
-            )}
-          </div>
-        </Card>
-      </TabsContent>
-
-      <TabsContent value="countdown" className="space-y-4">
-        <Card className="p-6 backdrop-blur-xl bg-white/10 dark:bg-black/10 border-white/20">
-          <div className="flex items-center gap-2 mb-4">
-            <Timer className="h-5 w-5 text-green-400" />
-            <h3 className="text-lg font-semibold text-white">카운트다운 타이머</h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <Label className="text-white">카운트다운 시간 (초)</Label>
-              <Input
-                type="number"
-                placeholder="초를 입력하세요"
-                value={countdownTime}
-                onChange={(e) => setCountdownTime(e.target.value)}
-                className="bg-white/10 text-white border-white/20"
-                disabled={isRunning}
-              />
-            </div>
-            
-            <div className="flex gap-2">
-              <Button
-                onClick={startCountdown}
-                disabled={isRunning}
-                className="bg-green-500/20 hover:bg-green-500/30 text-white"
-              >
-                시작
+              <Button onClick={convertSeconds} className="w-full">
+                <Timer className="h-4 w-4 mr-2" />
+                변환하기
               </Button>
-              <Button
-                onClick={stopCountdown}
-                disabled={!isRunning}
-                className="bg-red-500/20 hover:bg-red-500/30 text-white"
-              >
-                중지
-              </Button>
-              <Button
-                onClick={resetCountdown}
-                className="bg-gray-500/20 hover:bg-gray-500/30 text-white"
-              >
-                리셋
-              </Button>
-            </div>
-            
-            {timeLeft > 0 && (
-              <div className="text-center">
-                <div className="text-4xl font-mono text-white mb-2">
-                  {formatTime(timeLeft)}
+              {convertedTime && (
+                <div className="bg-black/30 border border-white/20 rounded-md p-4">
+                  <div className="text-white/70 text-sm mb-1">변환 결과:</div>
+                  <div className="text-white text-lg font-semibold">{convertedTime}</div>
                 </div>
-                <div className="w-full bg-white/10 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-1000"
-                    style={{
-                      width: `${((parseInt(countdownTime) - timeLeft) / parseInt(countdownTime)) * 100}%`
-                    }}
+              )}
+            </TabsContent>
+
+            <TabsContent value="dates" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="start-date" className="text-white">시작 날짜</Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-white/10 border-white/20 text-white mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="end-date" className="text-white">종료 날짜</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-white/10 border-white/20 text-white mt-2"
                   />
                 </div>
               </div>
-            )}
-          </div>
-        </Card>
-      </TabsContent>
+              <Button onClick={calculateDateDiff} className="w-full">
+                <Calendar className="h-4 w-4 mr-2" />
+                날짜 차이 계산
+              </Button>
+              {dateDiff && (
+                <div className="bg-black/30 border border-white/20 rounded-md p-4">
+                  <div className="text-white/70 text-sm mb-1">날짜 차이:</div>
+                  <div className="text-white text-lg font-semibold">{dateDiff}</div>
+                </div>
+              )}
+            </TabsContent>
 
-      <TabsContent value="timezone" className="space-y-4">
-        <Card className="p-6 backdrop-blur-xl bg-white/10 dark:bg-black/10 border-white/20">
-          <div className="flex items-center gap-2 mb-4">
-            <Globe className="h-5 w-5 text-purple-400" />
-            <h3 className="text-lg font-semibold text-white">세계 시계</h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <Label className="text-white">시간대 선택</Label>
-              <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
-                <SelectTrigger className="bg-white/10 text-white border-white/20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {timezones.map(tz => (
-                    <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="p-4 bg-white/5 rounded-lg text-center">
-              <p className="text-sm text-gray-400 mb-1">{selectedTimezone}</p>
-              <p className="text-2xl font-mono text-white">{timezoneTime}</p>
-            </div>
-          </div>
-        </Card>
-      </TabsContent>
-
-      <TabsContent value="calculator" className="space-y-4">
-        <Card className="p-6 backdrop-blur-xl bg-white/10 dark:bg-black/10 border-white/20">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="h-5 w-5 text-yellow-400" />
-            <h3 className="text-lg font-semibold text-white">날짜 계산기</h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <TabsContent value="timestamp" className="space-y-4">
               <div>
-                <Label className="text-white">시작 날짜</Label>
+                <Label htmlFor="timestamp-input" className="text-white">타임스탬프 (Unix)</Label>
                 <Input
-                  type="date"
-                  className="bg-white/10 text-white border-white/20"
+                  id="timestamp-input"
+                  type="number"
+                  value={timestamp}
+                  onChange={(e) => setTimestamp(e.target.value)}
+                  placeholder="예: 1640995200"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50 mt-2"
                 />
               </div>
-              <div>
-                <Label className="text-white">종료 날짜</Label>
-                <Input
-                  type="date"
-                  className="bg-white/10 text-white border-white/20"
-                />
+              <div className="flex gap-2">
+                <Button onClick={convertTimestamp} className="flex-1">
+                  변환하기
+                </Button>
+                <Button onClick={getCurrentTimestamp} variant="outline" className="text-white border-white/20 hover:bg-white/10">
+                  현재 시간
+                </Button>
               </div>
-            </div>
-            
-            <Button className="bg-yellow-500/20 hover:bg-yellow-500/30 text-white">
-              차이 계산
-            </Button>
-            
-            <div className="p-4 bg-white/5 rounded-lg">
-              <p className="text-white">날짜 계산 결과가 여기에 표시됩니다</p>
-            </div>
-          </div>
-        </Card>
-      </TabsContent>
-    </Tabs>
+              {humanTime && (
+                <div className="bg-black/30 border border-white/20 rounded-md p-4">
+                  <div className="text-white/70 text-sm mb-1">변환 결과:</div>
+                  <div className="text-white text-lg font-semibold">{humanTime}</div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
