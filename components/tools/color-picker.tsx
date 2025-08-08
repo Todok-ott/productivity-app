@@ -31,8 +31,6 @@ export function ColorPicker() {
 
   const removeColor = (color: string) => {
     setSavedColors(savedColors.filter(c => c !== color))
-    toast.success("Color remove
-    setSavedColors(savedColors.filter(c => c !== color))
     toast.success("Color removed!")
   }
 
@@ -45,7 +43,41 @@ export function ColorPicker() {
     } : null
   }
 
+  const hexToHsl = (hex: string) => {
+    const rgb = hexToRgb(hex)
+    if (!rgb) return null
+    
+    const r = rgb.r / 255
+    const g = rgb.g / 255
+    const b = rgb.b / 255
+    
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    let h = 0
+    let s = 0
+    const l = (max + min) / 2
+    
+    if (max !== min) {
+      const d = max - min
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+      
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break
+        case g: h = (b - r) / d + 2; break
+        case b: h = (r - g) / d + 4; break
+      }
+      h /= 6
+    }
+    
+    return {
+      h: Math.round(h * 360),
+      s: Math.round(s * 100),
+      l: Math.round(l * 100)
+    }
+  }
+
   const rgbValues = hexToRgb(selectedColor)
+  const hslValues = hexToHsl(selectedColor)
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -119,12 +151,12 @@ export function ColorPicker() {
               <CardContent className="p-4 text-center">
                 <div className="text-white/70 text-sm mb-1">HSL</div>
                 <div className="text-white font-mono text-sm">
-                  {rgbValues ? `${Math.round(Math.atan2(Math.sqrt(3) * (rgbValues.g - rgbValues.b), 2 * rgbValues.r - rgbValues.g - rgbValues.b) * 180 / Math.PI)}°` : 'Invalid'}
+                  {hslValues ? `${hslValues.h}°, ${hslValues.s}%, ${hslValues.l}%` : 'Invalid'}
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => copyToClipboard(`hsl(${selectedColor})`)}
+                  onClick={() => hslValues && copyToClipboard(`hsl(${hslValues.h}, ${hslValues.s}%, ${hslValues.l}%)`)}
                   className="mt-2 text-white/70 hover:text-white"
                 >
                   <Copy className="h-3 w-3" />

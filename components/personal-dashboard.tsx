@@ -5,7 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Calendar, Star, Sparkles, ExternalLink } from 'lucide-react'
+import { Calendar, Star, Sparkles, ExternalLink, RefreshCw, Cloud, Thermometer, Droplets, Wind } from 'lucide-react'
+import { fetchWeatherData } from "@/lib/weather-service"
+import { fetchNewsData } from "@/lib/news-service"
+import { toast } from "sonner"
 
 interface NewsItem {
   id: string
@@ -14,44 +17,89 @@ interface NewsItem {
   content: string
   source: string
   publishedAt: string
+  category: 'breaking' | 'trending' | 'major'
+  importance: number
+}
+
+interface WeatherData {
+  location: string
+  temperature: number
+  condition: string
+  humidity: number
+  windSpeed: number
+  icon: string
+  lastUpdated: string
 }
 
 export function PersonalDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null)
-
-  // Mock news data - in real app, this would come from an API
-  const [news] = useState<NewsItem[]>([
-    {
-      id: '1',
-      title: 'Major Tech Breakthrough in AI Development',
-      summary: 'Scientists announce significant advancement in artificial intelligence capabilities...',
-      content: 'In a groundbreaking development, researchers at leading technology institutes have announced a major breakthrough in artificial intelligence development. This advancement promises to revolutionize how we interact with technology in our daily lives. The new AI system demonstrates unprecedented capabilities in understanding context, reasoning, and problem-solving. Industry experts believe this could be the beginning of a new era in technological innovation. The implications for various sectors including healthcare, education, and business automation are enormous. Companies are already exploring how to integrate these new capabilities into their existing systems.',
-      source: 'Tech News Daily',
-      publishedAt: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '2',
-      title: 'Global Climate Initiative Shows Promising Results',
-      summary: 'New environmental policies lead to measurable improvements in air quality...',
-      content: 'Recent data from environmental monitoring stations worldwide shows that the global climate initiative launched last year is yielding promising results. Air quality measurements in major cities have improved by an average of 15% compared to the same period last year. The initiative, which focuses on renewable energy adoption and carbon emission reduction, has gained support from over 150 countries. Scientists are optimistic that if current trends continue, we could see significant environmental improvements within the next decade. The success of this program demonstrates the power of international cooperation in addressing global challenges.',
-      source: 'Environmental Times',
-      publishedAt: '2024-01-15T08:15:00Z'
-    },
-    {
-      id: '3',
-      title: 'Space Exploration Reaches New Milestone',
-      summary: 'Private space company successfully completes historic mission to Mars...',
-      content: 'A private space exploration company has successfully completed a historic unmanned mission to Mars, marking a significant milestone in space exploration. The mission, which took 7 months to complete, has provided valuable data about the Martian atmosphere and surface conditions. This achievement represents a major step forward in humanitys quest to explore and potentially colonize other planets. The mission has also demonstrated the viability of private sector involvement in space exploration, opening new possibilities for future missions. Scientists are already planning follow-up missions based on the data collected from this groundbreaking expedition.',
-      source: 'Space Explorer Magazine',
-      publishedAt: '2024-01-14T16:45:00Z'
-    }
-  ])
+  const [news, setNews] = useState<NewsItem[]>([])
+  const [weather, setWeather] = useState<WeatherData | null>(null)
+  const [newsLoading, setNewsLoading] = useState(true)
+  const [weatherLoading, setWeatherLoading] = useState(true)
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  // Auto-refresh data on component mount and every 5 minutes
+  useEffect(() => {
+    loadInitialData()
+    
+    const refreshInterval = setInterval(() => {
+      refreshData()
+    }, 5 * 60 * 1000) // 5 minutes
+    
+    return () => clearInterval(refreshInterval)
+  }, [])
+
+  const loadInitialData = async () => {
+    await Promise.all([loadWeatherData(), loadNewsData()])
+  }
+
+  const loadWeatherData = async () => {
+    setWeatherLoading(true)
+    try {
+      const weatherData = await fetchWeatherData()
+      setWeather(weatherData)
+    } catch (error) {
+      toast.error("Failed to load weather data")
+    } finally {
+      setWeatherLoading(false)
+    }
+  }
+
+  const loadNewsData = async () => {
+    setNewsLoading(true)
+    try {
+      const newsData = await fetchNewsData()
+      setNews(newsData)
+    } catch (error) {
+      toast.error("Failed to load news data")
+    } finally {
+      setNewsLoading(false)
+    }
+  }
+
+  const refreshData = async () => {
+    toast.info("Refreshing data...")
+    await Promise.all([loadWeatherData(), loadNewsData()])
+    toast.success("Data refreshed!")
+  }
+
+  const refreshWeather = async () => {
+    toast.info("Refreshing weather...")
+    await loadWeatherData()
+    toast.success("Weather updated!")
+  }
+
+  const refreshNews = async () => {
+    toast.info("Refreshing news...")
+    await loadNewsData()
+    toast.success("News updated!")
+  }
 
   // Enhanced fortune for Year of the Pig (1983)
   const getPigFortune = () => {
@@ -82,6 +130,33 @@ export function PersonalDashboard() {
 
   const todaysFortune = getPigFortune()
 
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date()
+    const publishedDate = new Date(dateString)
+    const diffInMinutes = Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60))
+    
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes}m ago`
+    } else if (diffInMinutes < 1440) {
+      return `${Math.floor(diffInMinutes / 60)}h ago`
+    } else {
+      return `${Math.floor(diffInMinutes / 1440)}d ago`
+    }
+  }
+
+  const getCategoryBadge = (category: string) => {
+    switch (category) {
+      case 'breaking':
+        return <Badge className="bg-red-600 text-white text-xs">BREAKING</Badge>
+      case 'trending':
+        return <Badge className="bg-orange-600 text-white text-xs">TRENDING</Badge>
+      case 'major':
+        return <Badge className="bg-blue-600 text-white text-xs">MAJOR</Badge>
+      default:
+        return null
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {/* Time & Date */}
@@ -104,6 +179,66 @@ export function PersonalDashboard() {
               day: 'numeric' 
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Enhanced Weather */}
+      <Card className="bg-black/40 border-white/10 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Cloud className="h-5 w-5" />
+              Weather
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshWeather}
+              disabled={weatherLoading}
+              className="text-white/70 hover:text-white p-1"
+            >
+              <RefreshCw className={`h-4 w-4 ${weatherLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {weatherLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-white/50" />
+            </div>
+          ) : weather ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-3xl font-bold text-white flex items-center gap-2">
+                    <span className="text-2xl">{weather.icon}</span>
+                    {weather.temperature}°C
+                  </div>
+                  <div className="text-white/70 text-sm">{weather.condition}</div>
+                  <div className="text-white/50 text-xs">{weather.location}</div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="flex items-center gap-2">
+                  <Droplets className="h-4 w-4 text-blue-400" />
+                  <span className="text-white/70 text-sm">{weather.humidity}%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Wind className="h-4 w-4 text-gray-400" />
+                  <span className="text-white/70 text-sm">{weather.windSpeed} km/h</span>
+                </div>
+              </div>
+              
+              <div className="text-white/40 text-xs">
+                Updated {getTimeAgo(weather.lastUpdated)}
+              </div>
+            </div>
+          ) : (
+            <div className="text-white/70 text-center py-4">
+              Failed to load weather data
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -153,53 +288,82 @@ export function PersonalDashboard() {
         </CardContent>
       </Card>
 
-      {/* Enhanced News Section */}
-      <Card className="bg-black/40 border-white/10 backdrop-blur-sm lg:col-span-1">
+      {/* Enhanced News Section - Full Width */}
+      <Card className="bg-black/40 border-white/10 backdrop-blur-sm lg:col-span-3">
         <CardHeader className="pb-3">
-          <CardTitle className="text-white flex items-center gap-2">
-            <Star className="h-5 w-5" />
-            Latest News
+          <CardTitle className="text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Star className="h-5 w-5" />
+              Breaking News & Headlines
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshNews}
+              disabled={newsLoading}
+              className="text-white/70 hover:text-white p-1"
+            >
+              <RefreshCw className={`h-4 w-4 ${newsLoading ? 'animate-spin' : ''}`} />
+            </Button>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {news.slice(0, 3).map((item) => (
-            <div 
-              key={item.id}
-              className="p-4 bg-white/5 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
-              onClick={() => setSelectedNews(item)}
-            >
-              <h3 className="text-white font-semibold text-base mb-2 leading-tight">
-                {item.title}
-              </h3>
-              <p className="text-white/70 text-sm mb-3 leading-relaxed">
-                {item.summary}
-              </p>
-              <div className="flex items-center justify-between">
-                <span className="text-white/50 text-xs">{item.source}</span>
-                <Button variant="ghost" size="sm" className="text-white/70 hover:text-white p-1">
-                  <ExternalLink className="h-3 w-3" />
-                </Button>
-              </div>
+        <CardContent>
+          {newsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-8 w-8 animate-spin text-white/50" />
             </div>
-          ))}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {news.map((item) => (
+                <div 
+                  key={item.id}
+                  className="p-6 bg-white/5 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 transition-all duration-200 hover:scale-[1.02]"
+                  onClick={() => setSelectedNews(item)}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    {getCategoryBadge(item.category)}
+                    <span className="text-white/50 text-xs">
+                      {getTimeAgo(item.publishedAt)}
+                    </span>
+                  </div>
+                  
+                  <h3 className="text-white font-bold text-lg mb-3 leading-tight line-clamp-2">
+                    {item.title}
+                  </h3>
+                  
+                  <p className="text-white/80 text-sm mb-4 leading-relaxed line-clamp-3">
+                    {item.summary}
+                  </p>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/60 text-xs font-medium">{item.source}</span>
+                    <Button variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300 p-1">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* News Detail Modal */}
       <Dialog open={!!selectedNews} onOpenChange={() => setSelectedNews(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-slate-900 border-white/20">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 border-white/20">
           <DialogHeader>
-            <DialogTitle className="text-white text-xl mb-2">
+            <div className="flex items-center gap-3 mb-2">
+              {selectedNews && getCategoryBadge(selectedNews.category)}
+              <span className="text-white/50 text-sm">
+                {selectedNews?.source} • {selectedNews && getTimeAgo(selectedNews.publishedAt)}
+              </span>
+            </div>
+            <DialogTitle className="text-white text-2xl leading-tight">
               {selectedNews?.title}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 text-sm text-white/70">
-              <span>{selectedNews?.source}</span>
-              <span>•</span>
-              <span>{selectedNews?.publishedAt ? new Date(selectedNews.publishedAt).toLocaleDateString() : ''}</span>
-            </div>
-            <div className="text-white/90 leading-relaxed">
+          <div className="space-y-6 mt-6">
+            <div className="text-white/90 text-lg leading-relaxed">
               {selectedNews?.content}
             </div>
           </div>
